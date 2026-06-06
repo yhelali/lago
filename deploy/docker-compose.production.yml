@@ -330,36 +330,6 @@ services:
       - lago_storage_data:/app/storage
       - lago_rsa_data:/app/config/keys
   
-  pdf-worker:
-    <<: *backend-image
-    container_name: lago-pdf-worker
-    restart: unless-stopped
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      db:
-        condition: service_healthy
-        restart: true
-        required: false
-      redis:
-        condition: service_healthy
-        restart: true
-        required: false
-    command: ["./scripts/start.pdf.worker.sh"]
-    healthcheck:
-      test: curl -f http://localhost:8080 || exit 1
-      interval: 10s
-      start_period: 30s
-      timeout: 60s
-      start_interval: 2s
-    environment:
-      <<: [*backend-env, *backend-urls]
-      SIDEKIQ_CONCURRENCY: 5
-      DATABASE_POOL: 5
-    volumes:
-      - lago_storage_data:/app/storage
-      - lago_rsa_data:/app/config/keys
-  
   webhook-worker:
     <<: *backend-image
     container_name: lago-webhook-worker
