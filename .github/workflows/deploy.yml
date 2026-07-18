@@ -28,7 +28,6 @@ jobs:
         uses: appleboy/ssh-action@v1.2.0
         env:
           LAGO_DOMAIN: ${{ secrets.LAGO_DOMAIN }}
-          LAGO_ACME_EMAIL: ${{ secrets.LAGO_ACME_EMAIL }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE }}
           LAGO_ENCRYPTION_PRIMARY_KEY: ${{ secrets.LAGO_ENCRYPTION_PRIMARY_KEY }}
@@ -38,7 +37,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: LAGO_DOMAIN,LAGO_ACME_EMAIL,POSTGRES_PASSWORD,SECRET_KEY_BASE,LAGO_ENCRYPTION_PRIMARY_KEY,LAGO_ENCRYPTION_DETERMINISTIC_KEY,LAGO_ENCRYPTION_KEY_DERIVATION_SALT
+          envs: LAGO_DOMAIN,POSTGRES_PASSWORD,SECRET_KEY_BASE,LAGO_ENCRYPTION_PRIMARY_KEY,LAGO_ENCRYPTION_DETERMINISTIC_KEY,LAGO_ENCRYPTION_KEY_DERIVATION_SALT
           script: |
             set -e
             cd ~/lago
@@ -46,7 +45,7 @@ jobs:
             # Write .env
             cat > .env << EOF
             LAGO_DOMAIN=${LAGO_DOMAIN}
-            LAGO_ACME_EMAIL=${LAGO_ACME_EMAIL}
+            TRAEFIK_NETWORK=hynex
 
             POSTGRES_USER=lago
             POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -61,10 +60,8 @@ jobs:
             LAGO_RAILS_STDOUT=true
             EOF
 
-            # Ensure acme.json exists with correct permissions
-            mkdir -p letsencrypt
-            touch letsencrypt/acme.json
-            chmod 600 letsencrypt/acme.json
+            # Réseau partagé de la plateforme Hynex (stack hynex-platform)
+            docker network inspect hynex >/dev/null 2>&1 || docker network create hynex
 
             # Pull images and deploy
             docker compose -f docker-compose.production.yml --profile all pull

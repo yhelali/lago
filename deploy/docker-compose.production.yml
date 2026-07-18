@@ -1,11 +1,18 @@
 name: lago-production
 
+# Réseau partagé de la plateforme Hynex (créé par le stack hynex-platform).
+# Seuls les services exposés via Traefik (api, front) s'y raccordent.
+networks:
+  default:
+  hynex:
+    external: true
+    name: ${TRAEFIK_NETWORK:-hynex}
+
 volumes:
   lago_rsa_data:
   lago_postgres_data:
   lago_redis_data:
   lago_storage_data:
-  portainer_data:
 
 x-postgres-image: &postgres-image
   image: postgres:15-alpine
@@ -72,28 +79,6 @@ x-frontend-environment: &frontend-env
   LAGO_OAUTH_PROXY_URL: https://proxy.getlago.com
 
 services:
-  traefik:
-    image: traefik:v3.6.6
-    container_name: lago-traefik
-    restart: unless-stopped
-    command:
-      - "--api.insecure=true"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
-      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
-      - "--entrypoints.websecure.address=:443"
-      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
-      - "--certificatesresolvers.letsencrypt.acme.email=${LAGO_ACME_EMAIL}"
-      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
-    ports:
-      - 80:80
-      - 443:443
-    volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      - "./letsencrypt:/letsencrypt"
-
   db:
     <<: *postgres-image
     container_name: lago-db
@@ -196,8 +181,12 @@ services:
     volumes:
       - lago_storage_data:/app/storage
       - lago_rsa_data:/app/config/keys
+    networks:
+      - default
+      - hynex
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=${TRAEFIK_NETWORK:-hynex}"
 
       # API Routes
       - "traefik.http.routers.lago-api.priority=100"
@@ -240,8 +229,12 @@ services:
         restart: true
     environment:
       <<: [*frontend-env]
+    networks:
+      - default
+      - hynex
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=${TRAEFIK_NETWORK:-hynex}"
       - "traefik.http.routers.lago-front.priority=50"
       - "traefik.http.routers.lago-front.entrypoints=websecure"
       - "traefik.http.routers.lago-front.rule=Host(`${LAGO_DOMAIN}`)"
@@ -424,23 +417,3 @@ services:
       - --chromium-ignore-certificate-errors=true
       - --chromium-disable-javascript=true
       - --api-timeout=300s
-
-  portainer:
-    image: portainer/portainer-ce:latest
-    container_name: lago-portainer
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - portainer_data:/data
-    environment:
-      - ADMIN_USER=${PORTAINER_USER:-admin}
-      - ADMIN_PASSWORD=${PORTAINER_PASSWORD:-changeme}
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.portainer.entrypoints=websecure"
-      - "traefik.http.routers.portainer.rule=Host(`${LAGO_DOMAIN}`) && PathPrefix(`/portainer`)"
-      - "traefik.http.routers.portainer.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.portainer.service=portainer-service"
-      - "traefik.http.services.portainer-service.loadbalancer.server.port=9000"
-      - "traefik.http.routers.portainer.middlewares=portainer-stripprefix"
-      - "traefik.http.middlewares.portainer-stripprefix.stripprefix.prefixes=/portainer"
