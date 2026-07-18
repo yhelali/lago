@@ -102,7 +102,8 @@ services:
     volumes:
       - lago_postgres_data:/data/postgres
     ports:
-      - ${POSTGRES_PORT:-5432}:${POSTGRES_PORT:-5432}
+      # Accessible uniquement depuis le VPS (tunnel SSH pour l'accès distant)
+      - 127.0.0.1:${POSTGRES_PORT:-5432}:${POSTGRES_PORT:-5432}
     profiles:
       - all
       - all-no-redis
@@ -121,7 +122,8 @@ services:
     volumes:
       - lago_redis_data:/data
     ports:
-      - ${REDIS_PORT:-6379}:${REDIS_PORT:-6379}
+      # Accessible uniquement depuis le VPS
+      - 127.0.0.1:${REDIS_PORT:-6379}:${REDIS_PORT:-6379}
     profiles:
       - all
       - all-no-pg
